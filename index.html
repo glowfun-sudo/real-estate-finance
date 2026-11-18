@@ -304,3 +304,129 @@
             </div>
         </div>
     </footer>
+    <!-- 리포트 다운로드 모달 -->
+    <div id="reportModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onclick="if(event.target===this) closeModal()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-down text-blue-600"></i> 주간 리포트 다운로드
+                </h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600" aria-label="닫기">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <p class="text-sm text-slate-500 mb-5">원하는 형식을 선택하세요. PDF는 브라우저 인쇄 창에서 'PDF로 저장'을 선택하면 됩니다.</p>
+            <div class="space-y-3">
+                <button onclick="downloadPdf()" class="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 transition">
+                    <span class="flex items-center gap-3 text-sm font-semibold text-slate-700"><i class="fa-solid fa-file-pdf text-rose-500 text-lg"></i> PDF 리포트 (인쇄)</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                </button>
+                <button onclick="downloadCsv()" class="w-full flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 transition">
+                    <span class="flex items-center gap-3 text-sm font-semibold text-slate-700"><i class="fa-solid fa-file-csv text-emerald-600 text-lg"></i> 핵심 지표 데이터 (CSV)</span>
+                    <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 토스트 -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-slate-900 text-white text-sm px-5 py-3 rounded-xl shadow-lg opacity-0 pointer-events-none transition-opacity duration-300 flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-blue-400"></i><span id="toastText"></span>
+    </div>
+
+    <script>
+        // ---------- 모달 / 알림 ----------
+        function openModal() {
+            const m = document.getElementById('reportModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+        }
+        function closeModal() {
+            const m = document.getElementById('reportModal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+        }
+        let toastTimer;
+        function alertBox(msg) {
+            if (window.event) window.event.preventDefault();
+            const t = document.getElementById('toast');
+            document.getElementById('toastText').textContent = msg;
+            t.classList.remove('opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.add('opacity-0'), 2200);
+        }
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+        // ---------- 다운로드 ----------
+        function downloadPdf() { closeModal(); setTimeout(() => window.print(), 200); }
+        function downloadCsv() {
+            const rows = [
+                ['지표', '현재값', '전주 대비'],
+                ['한국은행 기준금리', '3.25%', '동결'],
+                ['국고채 3년물', '2.91%', '+0.04%p'],
+                ['코픽스(신규취급액)', '3.42%', '-0.02%p'],
+                ['부동산 PF 연체율', '3.18%', '+0.12%p'],
+                ['K-REITs 종합지수', '1042.5', '+1.4%'],
+                ['서울 아파트 매매변동', '+0.08%', '상승세 유지'],
+                ['도시개발 유동성 지수', '84.2', '-1.5pt'],
+                ['회사채 스프레드(AA-)', '68bp', '보합']
+            ];
+            const csv = '﻿' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            a.download = '부동산금융_주간지표.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            closeModal();
+            alertBox('CSV 파일을 내려받았습니다.');
+        }
+
+        // ---------- 차트 ----------
+        Chart.defaults.font.family = "'Pretendard', sans-serif";
+        Chart.defaults.color = '#64748b';
+        const months = ['6월', '7월', '8월', '9월', '10월', '11월'];
+
+        new Chart(document.getElementById('rateTrendChart'), {
+            type: 'line',
+            data: {
+                labels: months,
+                datasets: [
+                    { label: '기준금리', data: [3.25, 3.25, 3.25, 3.25, 3.25, 3.25], borderColor: '#0f172a', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, stepped: true },
+                    { label: '국고채 3년물', data: [2.78, 2.83, 2.80, 2.85, 2.87, 2.91], borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.08)', fill: true, borderWidth: 2.5, tension: 0.35, pointRadius: 3 },
+                    { label: '코픽스(신규)', data: [3.55, 3.52, 3.50, 3.47, 3.44, 3.42], borderColor: '#059669', borderWidth: 2.5, tension: 0.35, pointRadius: 3 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } }
+                },
+                scales: {
+                    y: { min: 2.6, max: 3.7, ticks: { callback: v => v.toFixed(1) + '%' }, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('reitsPfChart'), {
+            data: {
+                labels: months,
+                datasets: [
+                    { type: 'bar', label: 'K-REITs 종합지수 (pt)', data: [985.2, 996.8, 1004.3, 1013.7, 1028.1, 1042.5], backgroundColor: 'rgba(245,158,11,0.75)', borderRadius: 6, yAxisID: 'y' },
+                    { type: 'line', label: 'PF 연체율 (%)', data: [2.70, 2.79, 2.88, 2.97, 3.06, 3.18], borderColor: '#e11d48', backgroundColor: '#e11d48', borderWidth: 2.5, tension: 0.35, pointRadius: 4, yAxisID: 'y1' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
+                scales: {
+                    y: { position: 'left', min: 950, max: 1060, title: { display: true, text: '지수(pt)' }, grid: { color: '#f1f5f9' } },
+                    y1: { position: 'right', min: 2.4, max: 3.4, title: { display: true, text: '연체율(%)' }, ticks: { callback: v => v.toFixed(1) + '%' }, grid: { display: false } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
